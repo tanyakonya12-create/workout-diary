@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Дневник тренировок</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  --bg: #EAF0F3;
+  --surface: #FFFFFF;
+  --field: #F5F8FA;
+  --ink: #1B2B3C;
+  --ink-soft: #566878;
+  --line: #CDD8DF;
+  --accent: #B4325C;
+  --accent-ink: #FFFFFF;
+  --good: #3F7D5C;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131C25;
+    --surface: #1B2632;
+    --field: #16202A;
+    --ink: #E7EEF4;
+    --ink-soft: #9AAAB8;
+    --line: #2E3C4A;
+    --accent: #F0799F;
+    --accent-ink: #2A0F1A;
+    --good: #7CC39C;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131C25;
+  --surface: #1B2632;
+  --field: #16202A;
+  --ink: #E7EEF4;
+  --ink-soft: #9AAAB8;
+  --line: #2E3C4A;
+  --accent: #F0799F;
+  --accent-ink: #2A0F1A;
+  --good: #7CC39C;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); background: var(--bg); }
+*, *::before, *::after { box-sizing: inherit; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.5 "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 640px; margin: 0 auto; padding: 22px 16px 56px; }
+header h1 {
+  font: 500 clamp(22px, 6.2vw, 30px)/1.15 "Unbounded", system-ui, sans-serif;
+  margin: 0 0 8px;
+  text-wrap: balance;
+}
+header p { margin: 0; color: var(--ink-soft); }
+header .privacy { font-size: 14px; margin-top: 10px; min-height: 1.5em; }
+
+nav.tabs {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  margin: 14px -16px 0;
+  padding: 0 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.tab {
+  flex: 1;
+  min-height: 48px;
+  padding: 12px 4px 10px;
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  font: 600 15px/1.2 "Golos Text", system-ui, sans-serif;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+.panel { padding-top: 22px; }
+h2 { font: 500 16px/1.3 "Unbounded", system-ui, sans-serif; margin: 30px 0 10px; }
+.panel > h2:first-child { margin-top: 0; }
+
+.field { margin: 0 0 22px; }
+.label { display: block; font-weight: 600; margin: 0 0 8px; }
+.hint { color: var(--ink-soft); font-size: 14px; margin: 6px 0 0; }
+.muted { color: var(--ink-soft); }
+
+input[type="text"], input[type="date"], textarea {
+  width: 100%;
+  padding: 11px 12px;
+  background: var(--field);
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font: 400 16px/1.4 "Golos Text", system-ui, sans-serif;
+}
+textarea { resize: vertical; min-height: 84px; }
+input::placeholder, textarea::placeholder { color: var(--ink-soft); opacity: .8; }
+input[type="date"] { min-height: 46px; }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.seg button, .scale button, .chip {
+  min-height: 48px;
+  padding: 10px 8px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font: 500 15px/1.25 "Golos Text", system-ui, sans-serif;
+  cursor: pointer;
+}
+.seg button[aria-pressed="true"], .scale button[aria-pressed="true"], .chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border-radius: 999px; padding: 10px 16px; }
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pace { margin: 10px 0 0; font-weight: 600; color: var(--good); min-height: 1.5em; }
+
+.exlist { border-bottom: 1px solid var(--line); }
+.exrow { padding: 14px 0; border-top: 1px solid var(--line); }
+.exrow .exname { font-weight: 600; }
+.exrow .two { display: grid; grid-template-columns: 104px 1fr; gap: 8px; margin-top: 8px; }
+.quiet {
+  background: none;
+  border: 0;
+  padding: 8px 0;
+  min-height: 40px;
+  color: var(--ink-soft);
+  font: 500 14px/1.2 "Golos Text", system-ui, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.quiet:hover { color: var(--ink); }
+.quiet.danger { color: var(--accent); }
+
+.primary {
+  width: 100%;
+  min-height: 52px;
+  padding: 14px 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  border-radius: 12px;
+  font: 600 16px/1.2 "Golos Text", system-ui, sans-serif;
+  cursor: pointer;
+}
+.primary:disabled { opacity: .6; cursor: default; }
+.err { color: var(--accent); font-weight: 500; margin: 0 0 10px; min-height: 1.5em; }
+
+.weekhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 28px 0 6px;
+  font: 500 15px/1.3 "Unbounded", system-ui, sans-serif;
+}
+.weekhead:first-child { margin-top: 0; }
+.weekhead .weekcount { font: 400 14px/1.3 "Golos Text", system-ui, sans-serif; color: var(--ink-soft); white-space: nowrap; }
+details.entry { border-top: 1px solid var(--line); }
+.entries > details.entry:last-of-type { border-bottom: 1px solid var(--line); }
+details.entry summary {
+  display: grid;
+  grid-template-columns: 92px 1fr 14px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  min-height: 56px;
+  cursor: pointer;
+  list-style: none;
+}
+details.entry summary::-webkit-details-marker { display: none; }
+details.entry summary::after {
+  content: "";
+  width: 8px; height: 8px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(45deg);
+  justify-self: end;
+  margin-top: -3px;
+}
+details.entry[open] summary::after { transform: rotate(-135deg); margin-top: 3px; }
+.when { font-weight: 600; }
+.what strong { display: block; font-weight: 600; }
+.what span { color: var(--ink-soft); font-size: 14px; }
+.detail { padding: 0 0 16px; }
+.detail p { margin: 0 0 8px; }
+.detail .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 0 0 10px; }
+.detail .facts dt { color: var(--ink-soft); }
+.detail .facts dd { margin: 0; font-weight: 500; }
+.ex { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 8px 0; border-top: 1px dashed var(--line); }
+.ex .exn { font-weight: 500; }
+.ex .exs { font-weight: 600; }
+.ex .exnote { grid-column: 1 / -1; color: var(--ink-soft); font-size: 14px; }
+.empty { padding: 8px 0; color: var(--ink-soft); }
+
+.summary { margin: 0 0 4px; }
+.chartbox {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 10px 8px;
+}
+.chartbox svg { display: block; width: 100%; max-width: 520px; height: auto; margin: 0 auto; }
+.ax { fill: var(--ink-soft); font: 400 11px "Golos Text", system-ui, sans-serif; }
+.axgoal { fill: var(--accent); font: 600 11px "Golos Text", system-ui, sans-serif; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.ref-goal { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.ref-start { stroke: var(--ink-soft); stroke-width: 1.5; stroke-dasharray: 2 4; }
+.line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+
+.toast {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s ease, transform .2s ease;
+  z-index: 20;
+}
+.toast.show { opacity: 1; transform: none; }
+.toastmsg { background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 12px; font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+@media (max-width: 380px) {
+  .seg button { font-size: 14px; padding: 8px 4px; }
+  details.entry summary { grid-template-columns: 78px 1fr 14px; gap: 10px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Дневник тренировок</h1>
+    <p>Цель на год: 10 км за 50 минут.</p>
+    <p class="privacy" id="privacy"></p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Разделы дневника">
+    <button class="tab" role="tab" id="tab-log" data-tab="log" aria-selected="true" aria-controls="panel-log">Записать</button>
+    <button class="tab" role="tab" id="tab-history" data-tab="history" aria-selected="false" aria-controls="panel-history">История</button>
+    <button class="tab" role="tab" id="tab-stats" data-tab="stats" aria-selected="false" aria-controls="panel-stats">Итоги</button>
+  </nav>
+
+  <section class="panel" id="panel-log" role="tabpanel" aria-labelledby="tab-log">
+    <div id="form"></div>
+  </section>
+
+  <section class="panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+    <div id="history"></div>
+  </section>
+
+  <section class="panel" id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden>
+    <p class="summary" id="summary"></p>
+    <h2>Темп на пробежках</h2>
+    <div class="chartbox" id="chart"></div>
+    <p class="hint" id="chartHint"></p>
+    <h2>Итоги недели</h2>
+    <p class="hint" id="weekLabel" style="margin-top:0;margin-bottom:14px"></p>
+    <div id="review"></div>
+  </section>
+</div>
+
+<div class="toast" aria-live="polite"><div class="toastmsg" id="toastmsg"></div></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TEMPLATES = {
+    trx_body: { label: 'TRX: всё тело', exercises: ['Тяга к груди', 'Жим от груди', 'Приседания с опорой на петли', 'Ягодичный мостик', 'Планка на предплечьях', 'Y-разведения'] },
+    trx_legs: { label: 'TRX: ноги и кор', exercises: ['Приседания в петлях', 'Обратные выпады', 'Сгибания ног в петлях', 'Планка из петель', 'Боковая планка на предплечье'] },
+    run: { label: 'Бег', exercises: [] }
+  };
+  var REVIEW_Q = [
+    ['q1', 'Что стало легче, чем в прошлое воскресенье?'],
+    ['q2', 'Что болело больше двух дней?'],
+    ['q3', 'Что сделаю на следующей неделе чуть сложнее?']
+  ];
+  var GOAL_PACE = 300;   // 5:00 на км = 10 км за 50:00
+  var START_PACE = 402;  // 6:42 на км = 10 км за 1:07
+
+  /* ---------- helpers ---------- */
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    if (props) {
+      Object.keys(props).forEach(function (k) {
+        var v = props[k];
+        if (v === false || v == null) return;
+        if (k === 'class') el.className = v;
+        else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+        else if (v === true) el.setAttribute(k, '');
+        else el.setAttribute(k, v);
+      });
+    }
+    for (var i = 2; i < arguments.length; i++) append(el, arguments[i]);
+    return el;
+  }
+  function append(el, kid) {
+    if (kid == null || kid === false) return;
+    if (Array.isArray(kid)) { kid.forEach(function (k) { append(el, k); }); return; }
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseYmd(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function mondayOf(s) { var d = parseYmd(s); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); }
+  var fmtDay = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+  var fmtShort = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' });
+  var fmtLong = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
+  function plural(n, a, b, c) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return a;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return b;
+    return c;
+  }
+  function fmtTime(sec) {
+    sec = Math.round(sec);
+    var hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60), ss = sec % 60;
+    return hh ? hh + ':' + pad(mm) + ':' + pad(ss) : mm + ':' + pad(ss);
+  }
+  function parseTime(str) {
+    var p = String(str).trim().split(':').map(function (x) { return x.trim(); });
+    if (p.length < 2 || p.length > 3) return null;
+    if (p.some(function (x) { return !/^\d+$/.test(x); })) return null;
+    var n = p.map(Number);
+    if (n[n.length - 1] > 59) return null;
+    var s = n.length === 3 ? n[0] * 3600 + n[1] * 60 + n[2] : n[0] * 60 + n[1];
+    return s > 0 ? s : null;
+  }
+  function parseKm(str) {
+    var v = parseFloat(String(str).replace(',', '.'));
+    return isFinite(v) && v > 0 && v < 100 ? v : null;
+  }
+  function fmtKm(km) { return String(Math.round(km * 100) / 100).replace('.', ','); }
+  function typeLabel(t) { return TEMPLATES[t] ? TEMPLATES[t].label : 'Тренировка'; }
+
+  /* ---------- state ---------- */
+  var state = { workouts: [], reviews: {}, ready: false, loadError: false, open: new Set(), confirmDel: null };
+  var weekKey = mondayOf(ymd(new Date()));
+  var reviewDirty = false;
+  var form = { type: 'trx_body', date: ymd(new Date()), before: null, after: null, rows: [], km: '', time: '', talk: false, dog: false, note: '' };
+  var api = {
+    saveWorkout: function () { return Promise.reject(new Error('not ready')); },
+    deleteWorkout: function () { return Promise.reject(new Error('not ready')); },
+    saveReview: function () { return Promise.reject(new Error('not ready')); }
+  };
+
+  function sortWorkouts() {
+    state.workouts.sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  }
+  function resetRows() {
+    form.rows = TEMPLATES[form.type].exercises.map(function (n) { return { name: n, scheme: '', note: '' }; });
+  }
+  resetRows();
+
+  /* ---------- toast ---------- */
+  var toastTimer;
+  function toast(msg) {
+    $('#toastmsg').textContent = msg;
+    var t = $('.toast');
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+  function setPrivacy(msg) { $('#privacy').textContent = msg; }
+
+  /* ---------- tabs ---------- */
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b.dataset.tab === name));
+    });
+    ['log', 'history', 'stats'].forEach(function (n) { $('#panel-' + n).hidden = n !== name; });
+    window.scrollTo({ top: 0 });
+  }
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () { showTab(b.dataset.tab); });
+  });
+
+  /* ---------- form ---------- */
+  function scale(label, key) {
+    var btns = [1, 2, 3, 4, 5].map(function (n) {
+      var b = h('button', {
+        type: 'button',
+        'aria-pressed': String(form[key] === n),
+        'aria-label': label + ': ' + n + ' из 5',
+        onclick: function () {
+          form[key] = form[key] === n ? null : n;
+          btns.forEach(function (x, i) { x.setAttribute('aria-pressed', String(form[key] === i + 1)); });
+        }
+      }, String(n));
+      return b;
+    });
+    return h('div', { class: 'field' },
+      h('span', { class: 'label' }, label),
+      h('div', { class: 'scale', role: 'group', 'aria-label': label }, btns));
+  }
+
+  function chip(label, key) {
+    var b = h('button', {
+      type: 'button', class: 'chip', 'aria-pressed': String(!!form[key]),
+      onclick: function () { form[key] = !form[key]; b.setAttribute('aria-pressed', String(form[key])); }
+    }, label);
+    return b;
+  }
+
+  function rowEl(r, i) {
+    return h('div', { class: 'exrow' },
+      h('input', { type: 'text', class: 'exname', 'aria-label': 'Название упражнения', placeholder: 'Название упражнения', value: r.name, oninput: function (e) { r.name = e.target.value; } }),
+      h('div', { class: 'two' },
+        h('input', { type: 'text', 'aria-label': 'Подходы и повторения', placeholder: '3×10', value: r.scheme, oninput: function (e) { r.scheme = e.target.value; } }),
+        h('input', { type: 'text', 'aria-label': 'Положение стоп или заметка', placeholder: 'Положение, заметка', value: r.note, oninput: function (e) { r.note = e.target.value; } })),
+      h('button', { type: 'button', class: 'quiet', onclick: function () { form.rows.splice(i, 1); renderForm(); } }, 'Убрать упражнение'));
+  }
+
+  function updatePace() {
+    var el = $('#pacePreview');
+    if (!el) return;
+    var km = parseKm(form.km), sec = parseTime(form.time);
+    el.textContent = km && sec ? 'Темп: ' + fmtTime(sec / km) + ' на км' : '';
+  }
+
+  function renderForm() {
+    var box = $('#form');
+    box.replaceChildren();
+
+    var seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Тип тренировки' },
+      Object.keys(TEMPLATES).map(function (k) {
+        return h('button', {
+          type: 'button', 'aria-pressed': String(form.type === k),
+          onclick: function () { if (form.type !== k) { form.type = k; resetRows(); renderForm(); } }
+        }, TEMPLATES[k].label);
+      }));
+    box.append(h('div', { class: 'field' }, h('span', { class: 'label' }, 'Тип тренировки'), seg));
+
+    box.append(h('div', { class: 'field' },
+      h('label', { class: 'label', for: 'f-date' }, 'Дата'),
+      h('input', { type: 'date', id: 'f-date', value: form.date, oninput: function (e) { form.date = e.target.value; } })));
+
+    box.append(scale('Самочувствие до тренировки', 'before'));
+    box.append(scale('Самочувствие после тренировки', 'after'));
+    box.append(h('p', { class: 'hint', style: 'margin:-12px 0 22px' }, '1 значит тяжело, 5 значит отлично.'));
+
+    if (form.type === 'run') {
+      box.append(h('div', { class: 'field' },
+        h('div', { class: 'pair' },
+          h('div', null,
+            h('label', { class: 'label', for: 'f-km' }, 'Дистанция, км'),
+            h('input', { type: 'text', id: 'f-km', inputmode: 'decimal', placeholder: '4,2', value: form.km, oninput: function (e) { form.km = e.target.value; updatePace(); } })),
+          h('div', null,
+            h('label', { class: 'label', for: 'f-time' }, 'Время, мм:сс'),
+            h('input', { type: 'text', id: 'f-time', inputmode: 'numeric', placeholder: '26:10', value: form.time, oninput: function (e) { form.time = e.target.value; updatePace(); } }))),
+        h('p', { class: 'pace', id: 'pacePreview' })));
+      box.append(h('div', { class: 'field' },
+        h('span', { class: 'label' }, 'Как бежалось'),
+        h('div', { class: 'chips' }, chip('Разговорный темп', 'talk'), chip('С Пирожком', 'dog'))));
+    } else {
+      var list = h('div', { class: 'exlist' }, form.rows.map(rowEl));
+      box.append(h('div', { class: 'field' },
+        h('span', { class: 'label' }, 'Упражнения'),
+        h('p', { class: 'hint', style: 'margin:0 0 10px' }, 'В первом поле подходы и повторения, во втором положение стоп или заметка про технику.'),
+        list,
+        h('button', { type: 'button', class: 'quiet', onclick: function () { form.rows.push({ name: '', scheme: '', note: '' }); renderForm(); } }, 'Добавить упражнение')));
+    }
+
+    box.append(h('div', { class: 'field' },
+      h('label', { class: 'label', for: 'f-note' }, 'Заметка'),
+      h('textarea', { id: 'f-note', rows: '3', placeholder: 'Ощущения в ногах, погода, что поменять в следующий раз', oninput: function (e) { form.note = e.target.value; } }, form.note)));
+
+    box.append(h('p', { class: 'err', id: 'formErr', role: 'alert' }));
+    box.append(h('button', { type: 'button', class: 'primary', id: 'saveBtn', onclick: onSave }, 'Сохранить тренировку'));
+    updatePace();
+  }
+
+  function formError(msg, focusSel) {
+    $('#formErr').textContent = msg;
+    if (focusSel) { var el = $(focusSel); if (el) el.focus(); }
+  }
+
+  async function onSave() {
+    $('#formErr').textContent = '';
+    if (!form.date) { formError('Выбери дату тренировки.', '#f-date'); return; }
+    var w = { type: form.type, date: form.date, createdAt: Date.now() };
+    if (form.before) w.before = form.before;
+    if (form.after) w.after = form.after;
+
+    if (form.type === 'run') {
+      var km = parseKm(form.km), sec = parseTime(form.time);
+      if (!km) { formError('Укажи дистанцию в километрах, например 4,2.', '#f-km'); return; }
+      if (!sec) { formError('Укажи время в формате мм:сс, например 26:10.', '#f-time'); return; }
+      w.km = km; w.seconds = sec; w.talk = !!form.talk; w.dog = !!form.dog;
+    } else {
+      w.exercises = form.rows
+        .filter(function (r) { return r.name.trim() && (r.scheme.trim() || r.note.trim()); })
+        .map(function (r) { return { name: r.name.trim(), scheme: r.scheme.trim(), note: r.note.trim() }; });
+      if (!w.exercises.length) { formError('Заполни хотя бы одно упражнение: подходы с повторениями или заметку.'); return; }
+    }
+    if (form.note.trim()) w.note = form.note.trim();
+    w.id = 'w_' + w.date + '_' + w.type + '_' + Math.random().toString(36).slice(2, 8);
+
+    var btn = $('#saveBtn');
+    btn.disabled = true;
+    try {
+      await storeReady;
+      await api.saveWorkout(JSON.parse(JSON.stringify(w)));
+      toast('Тренировка сохранена');
+      haptic();
+      form.date = ymd(new Date());
+      form.before = null; form.after = null; form.km = ''; form.time = ''; form.talk = false; form.dog = false; form.note = '';
+      resetRows();
+      renderForm();
+    } catch (e) {
+      btn.disabled = false;
+      formError(e && e.message === 'too_long' ? 'Запись слишком длинная для облака Telegram. Сократи заметки и сохрани снова.' : 'Не удалось сохранить тренировку. Попробуй ещё раз.');
+    }
+  }
+
+  /* ---------- history ---------- */
+  function workoutSummary(w) {
+    if (w.type === 'run' && w.km && w.seconds) {
+      return fmtKm(w.km) + ' км за ' + fmtTime(w.seconds) + ', ' + fmtTime(w.seconds / w.km) + ' на км';
+    }
+    var n = (w.exercises || []).length;
+    return n + ' ' + plural(n, 'упражнение', 'упражнения', 'упражнений');
+  }
+
+  function detailEl(w) {
+    var box = h('div', { class: 'detail' });
+    if (w.type === 'run' && w.km && w.seconds) {
+      var facts = h('dl', { class: 'facts' },
+        h('dt', null, 'Дистанция'), h('dd', null, fmtKm(w.km) + ' км'),
+        h('dt', null, 'Время'), h('dd', null, fmtTime(w.seconds)),
+        h('dt', null, 'Темп'), h('dd', null, fmtTime(w.seconds / w.km) + ' на км'));
+      if (typeof w.talk === 'boolean') { facts.append(h('dt', null, 'Разговорный темп'), h('dd', null, w.talk ? 'да' : 'нет')); }
+      if (typeof w.dog === 'boolean') { facts.append(h('dt', null, 'С Пирожком'), h('dd', null, w.dog ? 'да' : 'нет')); }
+      box.append(facts);
+    } else {
+      (w.exercises || []).forEach(function (e) {
+        box.append(h('div', { class: 'ex' },
+          h('span', { class: 'exn' }, e.name),
+          h('span', { class: 'exs' }, e.scheme || ''),
+          e.note ? h('span', { class: 'exnote' }, e.note) : null));
+      });
+    }
+    if (w.before || w.after) {
+      var parts = [];
+      if (w.before) parts.push('до ' + w.before + ' из 5');
+      if (w.after) parts.push('после ' + w.after + ' из 5');
+      box.append(h('p', { class: 'muted', style: 'margin-top:10px' }, 'Самочувствие: ' + parts.join(', ') + '.'));
+    }
+    if (w.note) box.append(h('p', null, w.note));
+
+    if (state.confirmDel === w.id) {
+      box.append(h('div', { style: 'display:flex;gap:18px;align-items:center' },
+        h('button', { type: 'button', class: 'quiet danger', onclick: function () { doDelete(w.id); } }, 'Да, удалить запись'),
+        h('button', { type: 'button', class: 'quiet', onclick: function () { state.confirmDel = null; renderHistory(); } }, 'Оставить')));
+    } else {
+      box.append(h('button', { type: 'button', class: 'quiet', onclick: function () { state.confirmDel = w.id; state.open.add(w.id); renderHistory(); } }, 'Удалить запись'));
+    }
+    return box;
+  }
+
+  async function doDelete(id) {
+    try {
+      await storeReady;
+      await api.deleteWorkout(id);
+      state.confirmDel = null;
+      state.open.delete(id);
+      renderHistory();
+      toast('Запись удалена');
+    } catch (e) {
+      toast('Не удалось удалить запись. Попробуй ещё раз.');
+    }
+  }
+
+  function renderHistory() {
+    var box = $('#history');
+    box.replaceChildren();
+    if (!state.ready) { box.append(h('p', { class: 'empty' }, 'Загружаю дневник…')); return; }
+    if (state.loadError) { box.append(h('p', { class: 'empty' }, 'Не удалось загрузить записи. Обнови страницу.')); return; }
+    if (!state.workouts.length) {
+      box.append(h('p', { class: 'empty' }, 'Пока нет записей. Сохрани первую тренировку на вкладке «Записать».'));
+      return;
+    }
+    var groups = new Map();
+    state.workouts.forEach(function (w) {
+      var k = mondayOf(w.date);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(w);
+    });
+    groups.forEach(function (list, k) {
+      box.append(h('div', { class: 'weekhead' },
+        h('span', null, 'Неделя с ' + fmtLong.format(parseYmd(k))),
+        h('span', { class: 'weekcount' }, list.length + ' ' + plural(list.length, 'тренировка', 'тренировки', 'тренировок'))));
+      var entries = h('div', { class: 'entries' });
+      list.forEach(function (w) {
+        var det = h('details', { class: 'entry' },
+          h('summary', null,
+            h('span', { class: 'when' }, fmtDay.format(parseYmd(w.date))),
+            h('span', { class: 'what' }, h('strong', null, typeLabel(w.type)), h('span', null, workoutSummary(w))),
+            h('span', { 'aria-hidden': 'true' })),
+          detailEl(w));
+        if (state.open.has(w.id)) det.open = true;
+        det.addEventListener('toggle', function () {
+          if (det.open) state.open.add(w.id); else state.open.delete(w.id);
+        });
+        entries.append(det);
+      });
+      box.append(entries);
+    });
+  }
+
+  /* ---------- stats + chart ---------- */
+  var NS = 'http://www.w3.org/2000/svg';
+  function s(tag, attrs, text) {
+    var el = document.createElementNS(NS, tag);
+    Object.keys(attrs || {}).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  function runsAsc() {
+    return state.workouts
+      .filter(function (w) { return w.type === 'run' && w.km && w.seconds; })
+      .map(function (w) { return { date: w.date, km: w.km, pace: w.seconds / w.km, createdAt: w.createdAt || 0 }; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt; });
+  }
+
+  function renderSummary() {
+    var el = $('#summary');
+    if (!state.ready) { el.textContent = ''; return; }
+    var now = new Date();
+    var cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 27);
+    var recent = state.workouts.filter(function (w) { return parseYmd(w.date) >= cutoff; });
+    var runsRecent = recent.filter(function (w) { return w.type === 'run'; }).length;
+    var text;
+    if (!recent.length) text = 'За последние 4 недели записей нет.';
+    else text = 'За последние 4 недели: ' + recent.length + ' ' + plural(recent.length, 'тренировка', 'тренировки', 'тренировок') +
+      ', из них ' + runsRecent + ' ' + plural(runsRecent, 'пробежка', 'пробежки', 'пробежек') + '.';
+    var runs = runsAsc();
+    if (runs.length) {
+      var best = Math.min.apply(null, runs.map(function (r) { return r.pace; }));
+      text += ' Лучший темп на пробежках: ' + fmtTime(best) + ' на км.';
+    }
+    el.textContent = text;
+  }
+
+  function renderChart() {
+    var box = $('#chart');
+    box.replaceChildren();
+    var runs = runsAsc();
+    var W = 360, H = 260, L = 40, R = 12, T = 16, B = 30;
+    var paces = runs.map(function (r) { return r.pace; });
+    var lo = Math.min.apply(null, paces.concat([GOAL_PACE])) - 14;
+    var hi = Math.max.apply(null, paces.concat([START_PACE])) + 14;
+    var x0 = L + 16, x1 = W - R - 16;
+    function x(i) { return runs.length === 1 ? (x0 + x1) / 2 : x0 + i * (x1 - x0) / (runs.length - 1); }
+    function y(p) { return T + (p - lo) / (hi - lo) * (H - T - B); }
+
+    var svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'График темпа на пробежках. Цель: 5:00 на километр.' });
+    for (var t = Math.ceil(lo / 30) * 30; t <= hi; t += 30) {
+      svg.append(s('line', { class: 'grid', x1: L, x2: W - R, y1: y(t), y2: y(t) }));
+      svg.append(s('text', { class: 'ax', x: L - 6, y: y(t) + 4, 'text-anchor': 'end' }, fmtTime(t)));
+    }
+    svg.append(s('line', { class: 'ref-start', x1: L, x2: W - R, y1: y(START_PACE), y2: y(START_PACE) }));
+    svg.append(s('text', { class: 'ax', x: L + 6, y: y(START_PACE) - 6 }, 'старт: 6:42 на км (10 км за 1:07)'));
+    svg.append(s('line', { class: 'ref-goal', x1: L, x2: W - R, y1: y(GOAL_PACE), y2: y(GOAL_PACE) }));
+    svg.append(s('text', { class: 'axgoal', x: L + 6, y: y(GOAL_PACE) - 6 }, 'цель: 5:00 на км (10 км за 50:00)'));
+
+    if (runs.length > 1) {
+      svg.append(s('polyline', { class: 'line', points: runs.map(function (r, i) { return x(i) + ',' + y(r.pace); }).join(' ') }));
+    }
+    runs.forEach(function (r, i) {
+      var c = s('circle', { class: 'dot', cx: x(i), cy: y(r.pace), r: 5 });
+      c.append(s('title', {}, fmtShort.format(parseYmd(r.date)) + ': ' + fmtKm(r.km) + ' км, ' + fmtTime(r.pace) + ' на км'));
+      svg.append(c);
+    });
+    if (runs.length) {
+      svg.append(s('text', { class: 'ax', x: x(0), y: H - 8, 'text-anchor': runs.length === 1 ? 'middle' : 'start' }, fmtShort.format(parseYmd(runs[0].date))));
+      if (runs.length > 1) svg.append(s('text', { class: 'ax', x: x(runs.length - 1), y: H - 8, 'text-anchor': 'end' }, fmtShort.format(parseYmd(runs[runs.length - 1].date))));
+    }
+    box.append(svg);
+    $('#chartHint').textContent = runs.length
+      ? 'Чем выше точка, тем быстрее темп. Ближайшая ступень на пути к цели: 1:02 на 10 км, это 6:12 на км.'
+      : 'Точки появятся после первой записанной пробежки. Пунктиром показаны старт и цель.';
+  }
+
+  /* ---------- weekly review ---------- */
+  function buildReview() {
+    var box = $('#review');
+    $('#weekLabel').textContent = 'Неделя с ' + fmtLong.format(parseYmd(weekKey)) + '. Заполняй в воскресенье, это две минуты.';
+    REVIEW_Q.forEach(function (q) {
+      box.append(h('div', { class: 'field' },
+        h('label', { class: 'label', for: 'r-' + q[0] }, q[1]),
+        h('textarea', { id: 'r-' + q[0], rows: '2', oninput: function () { reviewDirty = true; } })));
+    });
+    box.append(h('p', { class: 'err', id: 'revErr', role: 'alert' }));
+    box.append(h('button', { type: 'button', class: 'primary', id: 'revBtn', onclick: onSaveReview }, 'Сохранить итоги недели'));
+  }
+  function applyReview() {
+    if (reviewDirty) return;
+    var r = state.reviews[weekKey] || {};
+    REVIEW_Q.forEach(function (q) { var el = $('#r-' + q[0]); if (el) el.value = r[q[0]] || ''; });
+  }
+  async function onSaveReview() {
+    $('#revErr').textContent = '';
+    var r = { updatedAt: Date.now() }, any = false;
+    REVIEW_Q.forEach(function (q) {
+      var v = $('#r-' + q[0]).value.trim();
+      r[q[0]] = v;
+      if (v) any = true;
+    });
+    if (!any) { $('#revErr').textContent = 'Ответь хотя бы на один вопрос.'; return; }
+    var btn = $('#revBtn');
+    btn.disabled = true;
+    try {
+      await storeReady;
+      await api.saveReview(weekKey, r);
+      reviewDirty = false;
+      toast('Итоги недели сохранены');
+    } catch (e) {
+      $('#revErr').textContent = e && e.message === 'too_long' ? 'Итоги слишком длинные для облака Telegram. Сократи ответы.' : 'Не удалось сохранить итоги недели. Попробуй ещё раз.';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderAll() { renderHistory(); renderSummary(); renderChart(); }
+
+  /* ---------- Telegram: theme and cloud storage ---------- */
+  var tg = window.Telegram && window.Telegram.WebApp;
+  var inTelegram = !!(tg && tg.initData && tg.CloudStorage && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.9')));
+  var MAX_VALUE = 4000; // лимит облака Telegram: 4096 символов на значение
+
+  function hexToRgb(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function mix(a, b, t) {
+    var A = hexToRgb(a), B = hexToRgb(b);
+    if (!A || !B) return null;
+    return '#' + A.map(function (v, i) { return Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0'); }).join('');
+  }
+  function applyTelegramTheme() {
+    if (!tg) return;
+    var p = tg.themeParams || {};
+    if (!p.bg_color || !p.text_color) return;
+    var st = document.documentElement.style, bg = p.bg_color, ink = p.text_color;
+    st.setProperty('--bg', bg);
+    st.setProperty('--ink', ink);
+    st.setProperty('--ink-soft', p.hint_color || mix(bg, ink, 0.6) || ink);
+    st.setProperty('--surface', p.secondary_bg_color || mix(bg, ink, 0.06) || bg);
+    st.setProperty('--field', mix(bg, ink, 0.05) || bg);
+    st.setProperty('--line', mix(bg, ink, 0.2) || p.hint_color || ink);
+    st.setProperty('--accent', p.button_color || p.link_color || '#B4325C');
+    st.setProperty('--accent-ink', p.button_text_color || '#ffffff');
+    st.setProperty('--good', tg.colorScheme === 'dark' ? '#7CC39C' : '#3F7D5C');
+    try { if (tg.setHeaderColor) tg.setHeaderColor(bg); if (tg.setBackgroundColor) tg.setBackgroundColor(bg); } catch (e) {}
+  }
+  function haptic() { try { if (inTelegram) tg.HapticFeedback.notificationOccurred('success'); } catch (e) {} }
+
+  function cs(method) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      args.push(function (err, val) { if (err) reject(new Error(String(err))); else resolve(val); });
+      tg.CloudStorage[method].apply(tg.CloudStorage, args);
+    });
+  }
+  function putValue(key, obj) {
+    var v = JSON.stringify(obj);
+    if (v.length > MAX_VALUE) return Promise.reject(new Error('too_long'));
+    return cs('setItem', key, v);
+  }
+
+  async function startCloud() {
+    // одна запись = один ключ: w_<дата>_<тип>_<id>; итоги недели: r_<понедельник>
+    api.saveWorkout = async function (w) {
+      await putValue(w.id, w);
+      state.workouts.push(w); sortWorkouts(); renderAll();
+    };
+    api.deleteWorkout = async function (id) {
+      await cs('removeItem', id);
+      state.workouts = state.workouts.filter(function (x) { return x.id !== id; });
+      renderAll();
+    };
+    api.saveReview = async function (key, r) {
+      await putValue('r_' + key, r);
+      state.reviews[key] = r; applyReview();
+    };
+
+    var keys = await cs('getKeys');
+    var values = {};
+    for (var i = 0; i < keys.length; i += 50) {
+      var chunk = keys.slice(i, i + 50);
+      var part = await cs('getItems', chunk);
+      Object.keys(part || {}).forEach(function (k) { values[k] = part[k]; });
+    }
+    var workouts = [], reviews = {};
+    Object.keys(values).forEach(function (k) {
+      try {
+        var obj = JSON.parse(values[k]);
+        if (k.indexOf('w_') === 0) workouts.push(obj);
+        else if (k.indexOf('r_') === 0) reviews[k.slice(2)] = obj;
+      } catch (e) {}
+    });
+    state.workouts = workouts; state.reviews = reviews;
+    sortWorkouts();
+    state.ready = true; state.loadError = false;
+    setPrivacy('Записи хранятся в облаке Telegram и привязаны к твоему аккаунту.');
+    renderAll();
+    applyReview();
+  }
+
+  /* ---------- запасной вариант: память браузера (страница открыта вне Telegram) ---------- */
+  var LS_KEY = 'trainlog:v1';
+  function lsLoad() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) { var o = JSON.parse(raw); return { workouts: o.workouts || [], reviews: o.reviews || {} }; }
+    } catch (e) {}
+    return { workouts: [], reviews: {} };
+  }
+  function lsSave() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ workouts: state.workouts, reviews: state.reviews })); return true; }
+    catch (e) { return false; }
+  }
+  function startLocal() {
+    var o = lsLoad();
+    state.workouts = o.workouts; state.reviews = o.reviews;
+    sortWorkouts();
+    state.ready = true;
+    function persist() {
+      if (!lsSave()) setPrivacy('Браузер не даёт сохранять данные на этой странице: записи пропадут после закрытия.');
+    }
+    api.saveWorkout = function (w) { state.workouts.push(w); sortWorkouts(); persist(); renderAll(); return Promise.resolve(); };
+    api.deleteWorkout = function (id) { state.workouts = state.workouts.filter(function (x) { return x.id !== id; }); persist(); renderAll(); return Promise.resolve(); };
+    api.saveReview = function (key, r) { state.reviews[key] = r; persist(); applyReview(); return Promise.resolve(); };
+    setPrivacy('Записи хранятся только в этом браузере. Открой дневник через бота, чтобы они жили в облаке Telegram.');
+    renderAll();
+    applyReview();
+  }
+
+  var storeReady = (async function init() {
+    applyTelegramTheme();
+    if (tg) {
+      try { tg.ready(); tg.expand(); tg.onEvent('themeChanged', applyTelegramTheme); } catch (e) {}
+    }
+    if (inTelegram) {
+      try { await startCloud(); }
+      catch (e) { state.ready = true; state.loadError = true; renderAll(); }
+      return;
+    }
+    startLocal();
+  })();
+
+  /* ---------- boot ---------- */
+  renderForm();
+  buildReview();
+  renderAll();
+  applyReview();
+})();
+</script>
+</body>
+</html>
